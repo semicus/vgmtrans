@@ -12,3 +12,17 @@ set_tests_properties(furnace_writer PROPERTIES FIXTURES_SETUP furnace_files)
 add_test(NAME furnace_binary_layout
   COMMAND Python3::Interpreter "${CMAKE_CURRENT_SOURCE_DIR}/verify_fur.py" "${FUR_TEST_OUTPUT}")
 set_tests_properties(furnace_binary_layout PROPERTIES FIXTURES_REQUIRED furnace_files)
+
+add_executable(furnace_resources_test ResourceTest.cpp)
+target_link_libraries(furnace_resources_test PRIVATE vgmtranscore)
+target_compile_definitions(furnace_resources_test PRIVATE FURNACE_TEST_RESOURCE_DIR="${PROJECT_SOURCE_DIR}/bin")
+vgmtrans_enable_project_warnings(furnace_resources_test)
+add_test(NAME furnace_resources COMMAND furnace_resources_test)
+
+option(VGMTRANS_BUILD_PUNISHER_RESOURCE_TOOL "Build local-only ROM resource utility (not a CI test)" OFF)
+if(VGMTRANS_BUILD_PUNISHER_RESOURCE_TOOL)
+  add_executable(punisher_resources PunisherResources.cpp)
+  target_link_libraries(punisher_resources PRIVATE vgmtranscore)
+  target_compile_definitions(punisher_resources PRIVATE FURNACE_TEST_RESOURCE_DIR="${PROJECT_SOURCE_DIR}/bin")
+  vgmtrans_enable_project_warnings(punisher_resources)
+endif()

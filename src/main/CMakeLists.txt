@@ -163,6 +163,7 @@ target_sources(vgmtranscore
     formats/CPS/CPS1TrackV1.cpp
     formats/CPS/CPS1TrackV2.cpp
     formats/CPS/CPS2Instr.cpp
+    formats/CPS/CPSFurnaceAdapter.cpp
     formats/CPS/CPS2Scanner.cpp
     formats/CPS/CPS2Seq.cpp
     formats/CPS/CPS2TrackV1.cpp
@@ -327,6 +328,7 @@ target_sources(vgmtranscore
       formats/CPS/CPS1TrackV2.h
       formats/CPS/CPS2Format.h
       formats/CPS/CPS2Instr.h
+      formats/CPS/CPSFurnaceAdapter.h
       formats/CPS/CPS2Scanner.h
       formats/CPS/CPS2Seq.h
       formats/CPS/CPS2TrackV1.h

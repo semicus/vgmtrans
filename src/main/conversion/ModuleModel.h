@@ -73,6 +73,9 @@ struct Sample {
   std::uint32_t rate = 24038;
   std::uint32_t c4Rate = 24038;  // Playback rate at the model's C-4.
   std::optional<SampleLoop> loop;
+  // Source tuning metadata (MIDI key convention), retained for diagnostics.
+  // .fur stores its effect in c4Rate, not a separate unity-key field.
+  std::optional<int> rootKey;
 };
 
 struct Instrument {
