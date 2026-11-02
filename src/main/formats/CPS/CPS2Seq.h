@@ -16,6 +16,7 @@ public:
   CPS2Seq(RawFile *file, u32 offset, CPS2FormatVer fmt_version, std::string name, std::vector<s8> instrTransposeTable = {});
   ~CPS2Seq() override;
 
+  bool supportsEventCapture() const override { return fmt_version == CPS2_V101; }
   bool parseHeader() override;
   bool parseTrackPointers() override;
   bool postLoad() override;

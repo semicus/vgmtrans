@@ -4,6 +4,7 @@
  * refer to the included LICENSE.txt file
  */
 #include "CPS2TrackV1.h"
+#include <stdexcept>
 
 #include "base/Types.h"
 #include "CPSCommon.h"
@@ -72,6 +73,10 @@ void CPS2TrackV1::calculateAndAddPortamentoTimeNoItem(s8 noteDistance) {
 bool CPS2TrackV1::readEvent() {
   u32 beginOffset = curOffset;
   u8 status_byte = readByte(curOffset++);
+  if (status_byte == 0x07 || (status_byte >= 0x0c && status_byte <= 0x0d) ||
+      (status_byte >= 0x18 && status_byte <= 0x1e))
+    emitSequenceEvent(SequenceEvent::Kind::Ignored, status_byte);
+  if (status_byte == 0x17) emitSequenceEvent(SequenceEvent::Kind::End);
   auto cpsSeq = static_cast<CPS2Seq*>(parentSeq);
   u8 masterVol = cpsSeq->masterVolume();
 
@@ -199,6 +204,9 @@ bool CPS2TrackV1::readEvent() {
           // Convert to microseconds and we're good to go.
           u16 ticks_per_iteration = getShortBE(curOffset);
           curOffset += 2;
+          emitSequenceEvent(SequenceEvent::Kind::QSoundTempo, ticks_per_iteration);
+          if (parentSeq->eventSink() && ticks_per_iteration == 0)
+            throw std::runtime_error("Zero QSound tempo");
           auto internal_ppqn = parentSeq->ppqn() << 8;
           auto iterations_per_beat = static_cast<double>(internal_ppqn) / ticks_per_iteration;
           const u32 micros_per_beat = lround((iterations_per_beat / CPS2_DRIVER_RATE_HZ) * 1000000);
@@ -236,6 +244,7 @@ bool CPS2TrackV1::readEvent() {
       // Global Transpose
       case 0x0A : {
         s8 globalTranspose = readByte(curOffset++);
+        emitSequenceEvent(SequenceEvent::Kind::GlobalTranspose, globalTranspose);
         addGlobalTranspose(beginOffset, curOffset - beginOffset, globalTranspose);
         break;
       }
@@ -300,6 +309,7 @@ bool CPS2TrackV1::readEvent() {
           // hack to check for infinite loop scenario in Punisher at 0xDF07: one 0E loop contains another 0E loop.
           // Also in slammast at f1a7, f1ab.. two 0E loops (song 0x26).  Actual game behavior is an infinite loop, see 0xF840 for
           // track ptrs repeating over the same tiny range.
+          emitSequenceEvent(SequenceEvent::Kind::Boundary, 3);
           return false;
 
         }

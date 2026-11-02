@@ -65,10 +65,10 @@ bool CPS2Seq::parseTrackPointers() {
       case CPS2_V210:
       case CPS2_V211:
       case CPS3:
-        addTrack<CPS2TrackV2>(this, trkOff + offset());
+        addTrack<CPS2TrackV2>(this, trkOff + offset())->sourceSlot = i;
         break;
       default:
-        addTrack<CPS2TrackV1>(this, trkOff + offset());
+        addTrack<CPS2TrackV1>(this, trkOff + offset())->sourceSlot = i;
     }
     header->addChild(offset() + 1 + (i * 2), 2, "Track Pointer");
   }

@@ -5,6 +5,7 @@
  */
 
 #include "VGMSeq.h"
+#include <stdexcept>
 
 #include "base/Types.h"
 #include "Format.h"
@@ -354,4 +355,33 @@ bool VGMSeq::saveAsMidi(const std::filesystem::path& filepath,
     return false;
   bool result = midiFile->saveMidiFile(filepath);
   return result;
+}
+
+// Capture uses the parser's own state machine, with no MidiFile or UI event lookup.
+bool VGMSeq::captureEvents(SequenceEventSink& sink, u32 stopTicks, int loopRepeats) {
+  if (!supportsEventCapture() || m_eventSink || stopTicks == 0 || stopTicks > 1000000 || loopRepeats < 0)
+    throw std::invalid_argument("Unsupported or invalid sequence capture");
+  const auto oldMode = readMode;
+  const auto oldContext = m_conversionContext;
+  std::vector<ReadMode> oldTrackModes;
+  for (auto* track : m_tracks) oldTrackModes.push_back(track->readMode);
+  auto restore = [&] {
+    m_eventSink = nullptr;
+    readMode = oldMode;
+    m_conversionContext = oldContext;
+    for (size_t i = 0; i < m_tracks.size(); ++i) m_tracks[i]->readMode = oldTrackModes[i];
+  };
+  m_eventSink = &sink;
+  m_captureOperations = 0;
+  m_conversionContext.sequenceLoops = loopRepeats;
+  try {
+    const bool result = loadTracks(READMODE_CAPTURE_EVENTS, stopTicks);
+    restore();
+    return result;
+  } catch (...) { restore(); throw; }
+}
+
+void VGMSeq::countCapturedOperation() {
+  if (m_eventSink && ++m_captureOperations > 1000000)
+    throw std::runtime_error("Sequence capture instruction limit (possible zero-time loop)");
 }

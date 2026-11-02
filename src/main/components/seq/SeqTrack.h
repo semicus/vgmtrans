@@ -9,6 +9,7 @@
 #include "LogManager.h"
 #include "Modulation.h"
 #include "ReadMode.h"
+#include "SequenceEventSink.h"
 #include "SynthType.h"
 #include "VGMItem.h"
 #include "SeqEventTimeIndex.h"
@@ -91,6 +92,7 @@ struct ControlFlowStateHasher {
 
 class SeqTrack : public VGMItem {
  public:
+  int sourceSlot = -1; // Original hardware slot, independent of MIDI channel.
   SeqTrack(VGMSeq *parentSeqFile, u32 offset = 0, u32 length = 0, std::string name = "Track");
 
   [[nodiscard]] bool usesLinearAmplitudeScale() const;
@@ -108,6 +110,9 @@ protected:
 
   virtual void setChannelAndGroupFromTrkNum(int theTrackNum);
   virtual void addInitialMidiEvents(int trackNum);
+  void emitSequenceEvent(SequenceEvent::Kind kind, int value = 0, u32 duration = 0) const;
+  bool readExecutionEvent();
+  u32 executionOffset = 0;
   virtual bool readEvent();
   virtual void onTickBegin() {}
   virtual void onTickEnd() {}

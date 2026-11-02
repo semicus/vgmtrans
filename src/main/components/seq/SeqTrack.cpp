@@ -141,6 +141,19 @@ void SeqTrack::loadTrackSegmentInit(u32 segmentOffset, u32 segmentLength,
   }
 }
 
+bool SeqTrack::readExecutionEvent() {
+  if (parentSeq->eventSink()) {
+    parentSeq->countCapturedOperation();
+    executionOffset = curOffset;
+  }
+  return readEvent();
+}
+
+void SeqTrack::emitSequenceEvent(SequenceEvent::Kind kind, int value, u32 duration) const {
+  if (auto* sink = parentSeq->eventSink())
+    sink->onSequenceEvent({kind, getTime(), sourceSlot, executionOffset, value, duration});
+}
+
 void SeqTrack::loadTrackMainLoop(u32 stopOffset, s32 stopTime) {
   if (!active) {
     return;
@@ -171,7 +184,7 @@ void SeqTrack::loadTrackMainLoop(u32 stopOffset, s32 stopTime) {
         break;
       }
 
-      if (!readEvent()) {
+      if (!readExecutionEvent()) {
         totalTicks = getTime();
         active = false;
         break;
@@ -182,7 +195,7 @@ void SeqTrack::loadTrackMainLoop(u32 stopOffset, s32 stopTime) {
   }
   else {
     while (curOffset < stopOffset && getTime() < static_cast<u32>(stopTime)) {
-      if (!readEvent()) {
+      if (!readExecutionEvent()) {
         active = false;
         break;
       }
@@ -191,6 +204,7 @@ void SeqTrack::loadTrackMainLoop(u32 stopOffset, s32 stopTime) {
     if (readMode == READMODE_FIND_DELTA_LENGTH) {
       totalTicks = getTime();
     }
+    emitSequenceEvent(SequenceEvent::Kind::Boundary, getTime() >= static_cast<u32>(stopTime) ? 1 : (active ? 2 : 0));
   }
 }
 
@@ -580,6 +594,7 @@ void SeqTrack::addNoteOn(u32 offset, u32 length, s8 key, s8 vel, const std::stri
 }
 
 void SeqTrack::addNoteOnNoItem(s8 key, s8 velocity) {
+  emitSequenceEvent(SequenceEvent::Kind::NoteOn, key + cKeyCorrection + transpose);
   if (readMode == READMODE_CONVERT_TO_MIDI) {
     u8 finalVel = velocity;
     if (usesLinearAmplitudeScale())
@@ -652,6 +667,7 @@ void SeqTrack::addNoteOff(u32 offset, u32 length, s8 key, const std::string &sEv
 }
 
 void SeqTrack::addNoteOffNoItem(s8 key) {
+  emitSequenceEvent(SequenceEvent::Kind::NoteOff, key + cKeyCorrection + transpose);
   endActiveNoteIndex(key, getTime());
   if (readMode != READMODE_CONVERT_TO_MIDI)
     return;
@@ -730,6 +746,7 @@ void SeqTrack::addNoteByDur(u32 offset,
 }
 
 void SeqTrack::addNoteByDurNoItem(s8 key, s8 vel, u32 dur) {
+  emitSequenceEvent(SequenceEvent::Kind::NoteDuration, key + cKeyCorrection + transpose, dur);
   if (readMode == READMODE_CONVERT_TO_MIDI) {
     u8 finalVel = vel;
     if (usesLinearAmplitudeScale())
@@ -1734,6 +1751,8 @@ void SeqTrack::addProgramChange(u32 offset,
 }
 
 void SeqTrack::addProgramChangeNoItem(u32 progNum, bool requireBank) const {
+  if (requireBank) emitSequenceEvent(SequenceEvent::Kind::Bank, progNum >> 7);
+  emitSequenceEvent(SequenceEvent::Kind::Program, progNum & 127);
   if (readMode == READMODE_CONVERT_TO_MIDI) {
     if (requireBank) {
       if (auto style = parentSeq->conversionContext().bankSelectStyle;
@@ -1759,6 +1778,7 @@ void SeqTrack::addBankSelect(u32 offset, u32 length, u8 bank, const std::string&
 }
 
 void SeqTrack::addBankSelectNoItem(u8 bank) const {
+  emitSequenceEvent(SequenceEvent::Kind::Bank, bank);
   if (readMode == READMODE_CONVERT_TO_MIDI) {
     if (auto style = parentSeq->conversionContext().bankSelectStyle;
         style == BankSelectStyle::GS) {
@@ -2061,6 +2081,7 @@ bool SeqTrack::addReturn(u32 offset, u32 length, const std::string &sEventName) 
 
 // when in FIND_DELTA_LENGTH mode, returns true until we've hit the max number of loops defined in options
 bool SeqTrack::addLoopForever(u32 offset, u32 length, const std::string &sEventName) {
+  emitSequenceEvent(SequenceEvent::Kind::Loop);
   bool isNewOffset = onEvent(offset, length);
 
   this->infiniteLoops++;
@@ -2068,7 +2089,7 @@ bool SeqTrack::addLoopForever(u32 offset, u32 length, const std::string &sEventN
   if (readMode == READMODE_ADD_TO_UI) {
     return isNewOffset;
   }
-  else if (readMode == READMODE_FIND_DELTA_LENGTH) {
+  else if (readMode == READMODE_FIND_DELTA_LENGTH || readMode == READMODE_CAPTURE_EVENTS) {
     totalTicks = getTime();
     return (this->infiniteLoops <= parentSeq->conversionContext().sequenceLoops);
   }

@@ -37,7 +37,7 @@ class Reader:
         check(self.pos == len(self.data), "unexpected trailing bytes in block")
 
 
-def decode(path):
+def decode(path, expected_rates=(24038, 24038)):
     data = path.read_bytes()
     header = Reader(data[:32])
     check(header.take(16) == b"-Furnace module-", "uncompressed signature")
@@ -139,7 +139,10 @@ def decode(path):
         sample = block(pointer, "SMP2")
         sample.text()
         length = sample.number("I")
-        check((sample.number("I"), sample.number("I")) == (24038, 24038), "sample rates")
+        rates = (sample.number("I"), sample.number("I"))
+        check(all(rate > 0 for rate in rates), "positive sample rates")
+        if expected_rates is not None:
+            check(rates == expected_rates, "sample rates")
         check(sample.take(4) == b"\10\0\0\0", "signed PCM8 format")
         start, end = sample.number("i"), sample.number("i")
         check((start, end) == (-1, -1) or 0 <= start < end <= length, "loop bounds")

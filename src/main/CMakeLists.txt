@@ -163,6 +163,7 @@ target_sources(vgmtranscore
     formats/CPS/CPS1TrackV1.cpp
     formats/CPS/CPS1TrackV2.cpp
     formats/CPS/CPS2Instr.cpp
+    formats/CPS/CPSFurnaceSequence.cpp
     formats/CPS/CPSFurnaceAdapter.cpp
     formats/CPS/CPS2Scanner.cpp
     formats/CPS/CPS2Seq.cpp
@@ -328,6 +329,7 @@ target_sources(vgmtranscore
       formats/CPS/CPS1TrackV2.h
       formats/CPS/CPS2Format.h
       formats/CPS/CPS2Instr.h
+      formats/CPS/CPSFurnaceSequence.h
       formats/CPS/CPSFurnaceAdapter.h
       formats/CPS/CPS2Scanner.h
       formats/CPS/CPS2Seq.h
@@ -524,6 +526,7 @@ target_sources(vgmtranscore
       components/matcher/SimpleMatcher.h
     FILE_SET headers_components_seq TYPE HEADERS BASE_DIRS components/seq
     FILES
+      components/seq/SequenceEventSink.h
       components/seq/SeqEvent.h
       components/seq/SeqEventTimeIndex.h
       components/seq/automation/SeqAutomation.h

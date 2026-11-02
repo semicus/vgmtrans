@@ -36,6 +36,11 @@ class VGMSeq : public VGMFile {
          std::string name = "VGM Sequence");
   ~VGMSeq() override;
 
+  // Opt-in: each parser must be audited before exposing capture.
+  virtual bool supportsEventCapture() const { return false; }
+  bool captureEvents(SequenceEventSink& sink, u32 stopTicks = 12000, int loopRepeats = 0);
+  SequenceEventSink* eventSink() const { return m_eventSink; }
+  void countCapturedOperation();
   bool load() override;
   virtual bool parseHeader();
   virtual bool parseTrackPointers();  // Function to find all of the track pointers.   Returns number of total tracks.
@@ -150,6 +155,8 @@ class VGMSeq : public VGMFile {
   virtual bool postLoad();
 
 private:
+  SequenceEventSink* m_eventSink = nullptr;
+  unsigned m_captureOperations = 0;
   bool hasActiveTracks();
   int foreverLoopCount();
 
