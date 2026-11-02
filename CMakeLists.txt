@@ -112,3 +112,9 @@ include(VGMTransWarnings)
 # ~~~
 
 add_subdirectory(src)
+
+option(VGMTRANS_BUILD_FURNACE_TESTS "Build standalone Furnace writer tests" OFF)
+if(VGMTRANS_BUILD_FURNACE_TESTS)
+  enable_testing()
+  add_subdirectory(tests/furnace)
+endif()

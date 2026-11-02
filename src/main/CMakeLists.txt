@@ -134,6 +134,7 @@ target_sources(vgmtranscore
     components/seq/VGMSeqNoTrks.cpp
     conversion/DLSConversion.cpp
     conversion/DLSFile.cpp
+    conversion/FurWriter.cpp
     conversion/MidiFile.cpp
     conversion/MidiMerge.cpp
     conversion/RiffFile.cpp
@@ -535,6 +536,8 @@ target_sources(vgmtranscore
     FILES
       conversion/DLSConversion.h
       conversion/DLSFile.h
+      conversion/FurWriter.h
+      conversion/ModuleModel.h
       conversion/MidiFile.h
       conversion/MidiMerge.h
       conversion/RiffFile.h
