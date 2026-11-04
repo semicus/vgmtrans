@@ -1,5 +1,8 @@
 # Milestone 3A: executed CPS/QSound sequence values
 
+Historical 3A behavior. For current volume/pan behavior and Song17 reproduction,
+see [CONTROLS.md](CONTROLS.md).
+
 Only CPS2_V101 opts into `VGMSeq::captureEvents`. A new read mode runs the existing
 parser without creating MIDI or looking up UI events. The sink receives copied
 values for each execution, including NoItem calls. Vector order is execution

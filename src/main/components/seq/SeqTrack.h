@@ -208,7 +208,7 @@ private:
                              const std::string& eventName,
                              Type type);
   double applyPanVolumeCorrection(double level, LevelController controller) const;
-  void addLevelNoItem(double level, LevelController controller, Resolution res, int absTime = -1);
+  void addLevelNoItem(double level, LevelController controller, Resolution res, int absTime = -1, int sourceRaw = -1);
   void reapplyStoredLevelNoItem(LevelController controller, int absTime = -1);
   void purgePrevDurEvents(u32 absTime);
   void clearPrevDurEvents();
@@ -252,8 +252,8 @@ private:
   void limitPrevDurNoteEnd() const;
   void limitPrevDurNoteEnd(u32 absTime) const;
   void addVol(u32 offset, u32 length, u8 vol, const std::string &sEventName = "Volume");
-  void addVolNoItem(u8 vol);
-  void addVol(u32 offset, u32 length, double volPercent, Resolution res, const std::string &sEventName = "Volume");
+  void addVolNoItem(u8 vol, int sourceRaw = -1);
+  void addVol(u32 offset, u32 length, double volPercent, Resolution res, const std::string &sEventName = "Volume", int sourceRaw = -1);
   void addVolSlide(u32 offset, u32 length, u32 dur, u8 targVol, const std::string &sEventName = "Volume Slide");
   void insertVol(u32 offset, u32 length, u8 vol, u32 absTime, const std::string &sEventName = "Volume");
   void addExpression(u32 offset, u32 length, u8 level, const std::string &sEventName = "Expression");
@@ -267,8 +267,8 @@ private:
   void addMasterVolNoItem(u8 newVol);
   void addMastVolSlide(u32 offset, u32 length, u32 dur, u8 targVol, const std::string &sEventName = "Master Volume Slide");
 
-  void addPan(u32 offset, u32 length, u8 pan, const std::string &sEventName = "Pan");
-  void addPanNoItem(u8 pan);
+  void addPan(u32 offset, u32 length, u8 pan, const std::string &sEventName = "Pan", int sourceRaw = -1);
+  void addPanNoItem(u8 pan, int sourceRaw = -1);
   void addPanSlide(u32 offset, u32 length, u32 dur, u8 targPan, const std::string &sEventName = "Pan Slide");
   void insertPan(u32 offset, u32 length, u8 pan, u32 absTime, const std::string &sEventName = "Pan");
   void addReverb(u32 offset, u32 length, u8 reverb, const std::string &sEventName = "Reverb");

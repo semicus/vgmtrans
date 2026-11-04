@@ -41,6 +41,7 @@ class VGMSeq : public VGMFile {
   bool captureEvents(SequenceEventSink& sink, u32 stopTicks = 12000, int loopRepeats = 0);
   SequenceEventSink* eventSink() const { return m_eventSink; }
   void countCapturedOperation();
+  void dispatchSequenceEvent(SequenceEvent event);
   bool load() override;
   virtual bool parseHeader();
   virtual bool parseTrackPointers();  // Function to find all of the track pointers.   Returns number of total tracks.
@@ -157,6 +158,7 @@ class VGMSeq : public VGMFile {
 private:
   SequenceEventSink* m_eventSink = nullptr;
   unsigned m_captureOperations = 0;
+  std::uint64_t m_captureEventOrder = 0;
   bool hasActiveTracks();
   int foreverLoopCount();
 

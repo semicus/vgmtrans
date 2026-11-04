@@ -19,6 +19,7 @@ class TestTrack : public SeqTrack {
     switch (step++) {
       case 0:
         emitSequenceEvent(K::QSoundTempo, 256);
+        addVolNoItem(100, 110); addPanNoItem(63, 16);
         addBankSelectNoItem(1); addProgramChangeNoItem(35, false);
         addNoteByDurNoItem(60, 100, 260); addTime(300); return true;
       case 1:
@@ -70,6 +71,13 @@ int main() {
     seq.convertToMidi()->writeMidiToBuffer(before);
     SequenceTimeline timeline; check(seq.captureEvents(timeline), "capture");
     check(seq.eventSink() == nullptr, "sink detached");
+    for (size_t i = 0; i < timeline.events.size(); ++i) check(timeline.events[i].order == i, "capture-wide execution ordinal");
+    unsigned rawControls = 0;
+    for (const auto& e : timeline.events) if (e.kind == K::Volume || e.kind == K::Panning) {
+      check(e.domain == SequenceEvent::ValueDomain::SourceRaw && e.value == (e.kind == K::Volume ? 110 : 16), "NoItem retains raw source value");
+      ++rawControls;
+    }
+    check(rawControls == 4, "NoItem emits exactly one control per execution");
     auto plan = planCPSSequence(timeline);
     check(plan.activeSlots == std::set<int>({2, 9}), "sparse hardware slots");
     check(plan.noteOns == 4 && plan.noteOffs == 4, "note counts including NoItem");
@@ -124,7 +132,7 @@ int main() {
     std::array<u8, 96> cpsBytes{};
     cpsBytes[2] = 33; cpsBytes[20] = 64; // slots 0 and 9
     const std::array<u8, 10> first{0x05,1,0,0x08,163,0xc1,0x0e,2,4,0x17};
-    const std::array<u8, 7> second{0x05,1,0,0x1f,1,0xc1,0x17};
+    const std::array<u8, 11> second{0x05,1,0,0x1f,1,0x07,77,0x18,17,0xc1,0x17};
     std::copy(first.begin(), first.end(), cpsBytes.begin() + 33);
     std::copy(second.begin(), second.end(), cpsBytes.begin() + 64);
     VirtFile cpsRaw(cpsBytes.data(), cpsBytes.size(), "synthetic-cps.bin");
@@ -136,6 +144,7 @@ int main() {
     check(cpsPlan.selection[0].program == 163 && cpsPlan.selection[1].bank == 1 && cpsPlan.selection[1].program == 1, "CPS opcodes 08 and 1f");
     unsigned executions = 0;
     for (auto& e : cpsTimeline.events) if (e.kind == K::NoteDuration && e.offset == 38) ++executions;
+    check(cpsPlan.initialStates.at(9).volume == 77 && cpsPlan.initialStates.at(9).pan == 17, "CPS raw opcodes 07/18 through helpers");
     check(executions == 3, "loop execution values retained");
     std::cout << "Execution sink, NoItem, bank mapping, sparse slots, timing, pattern crossing, collisions and MIDI regression passed.\n";
   } catch (const std::exception& e) { std::cerr << e.what() << '\n'; return 1; }

@@ -8,23 +8,11 @@
 
 #include "base/Types.h"
 #include "CPSCommon.h"
+#include "CPSVolumeTable.h"
 #include "ScaleConversion.h"
 #include "SeqEvent.h"
 
-static const u16 vol_table[128] = {
-  0, 0xA, 0x18, 0x26, 0x34, 0x42, 0x51, 0x5F, 0x6E, 0x7D, 0x8C, 0x9B, 0xAA,
-  0xBA, 0xC9, 0xD9, 0xE9, 0xF8, 0x109, 0x119, 0x129, 0x13A, 0x14A, 0x15B,
-  0x16C, 0x17D, 0x18E, 0x1A0, 0x1B2, 0x1C3, 0x1D5, 0x1E8, 0x1FC, 0x20D, 0x21F,
-  0x232, 0x245, 0x259, 0x26C, 0x280, 0x294, 0x2A8, 0x2BD, 0x2D2, 0x2E7, 0x2FC,
-  0x311, 0x327, 0x33D, 0x353, 0x36A, 0x381, 0x398, 0x3B0, 0x3C7, 0x3DF, 0x3F8,
-  0x411, 0x42A, 0x443, 0x45D, 0x477, 0x492, 0x4AD, 0x4C8, 0x4E4, 0x501, 0x51D,
-  0x53B, 0x558, 0x577, 0x596, 0x5B5, 0x5D5, 0x5F5, 0x616, 0x638, 0x65A, 0x67D,
-  0x6A1, 0x6C5, 0x6EB, 0x711, 0x738, 0x75F, 0x788, 0x7B2, 0x7DC, 0x808, 0x834,
-  0x862, 0x891, 0x8C2, 0x8F3, 0x927, 0x95B, 0x991, 0x9C9, 0xA03, 0xA3F,
-  0xA7D, 0xABD, 0xAFF, 0xB44, 0xB8C, 0xBD7, 0xC25, 0xC76, 0xCCC,
-  0xD26, 0xD85, 0xDE9, 0xE53, 0xEC4, 0xF3C, 0xFBD, 0x1048, 0x10DF,
-  0x1184, 0x123A, 0x1305, 0x13EA, 0x14F1, 0x1625, 0x179B, 0x1974, 0x1BFB, 0x1FFD
-};
+
 
 // *************
 // CPSTrackV1
@@ -73,8 +61,8 @@ void CPS2TrackV1::calculateAndAddPortamentoTimeNoItem(s8 noteDistance) {
 bool CPS2TrackV1::readEvent() {
   u32 beginOffset = curOffset;
   u8 status_byte = readByte(curOffset++);
-  if (status_byte == 0x07 || (status_byte >= 0x0c && status_byte <= 0x0d) ||
-      (status_byte >= 0x18 && status_byte <= 0x1e))
+  if ((status_byte >= 0x0c && status_byte <= 0x0d) ||
+      (status_byte >= 0x19 && status_byte <= 0x1e))
     emitSequenceEvent(SequenceEvent::Kind::Ignored, status_byte);
   if (status_byte == 0x17) emitSequenceEvent(SequenceEvent::Kind::End);
   auto cpsSeq = static_cast<CPS2Seq*>(parentSeq);
@@ -222,8 +210,9 @@ bool CPS2TrackV1::readEvent() {
 
       case 0x07 : {
         u8 volIndex = readByte(curOffset++);
-        double volPercent = vol_table[volIndex] / static_cast<double>(0x1FFF);
-        addVol(beginOffset, curOffset - beginOffset, volPercent, Resolution::FourteenBit);
+        if (parentSeq->eventSink() && volIndex >= 128) throw std::runtime_error("Invalid CPS volume index");
+        double volPercent = cpsVolumeTable[volIndex] / static_cast<double>(0x1FFF);
+        addVol(beginOffset, curOffset - beginOffset, volPercent, Resolution::FourteenBit, "Volume", volIndex);
         break;
       }
 
@@ -400,10 +389,11 @@ bool CPS2TrackV1::readEvent() {
       // pan
       case 0x18 : {
         //the pan value is b/w 0 and 0x20.  0 - hard left, 0x10 - center, 0x20 - hard right
-        u8 pan = readByte(curOffset++) * 4;
+        const u8 sourcePan = readByte(curOffset++);
+        u8 pan = sourcePan * 4;
         if (pan != 0)
           pan--;
-        this->addPan(beginOffset, curOffset - beginOffset, pan);
+        this->addPan(beginOffset, curOffset - beginOffset, pan, "Pan", sourcePan);
         break;
       }
 

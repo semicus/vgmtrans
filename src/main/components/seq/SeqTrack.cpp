@@ -150,8 +150,8 @@ bool SeqTrack::readExecutionEvent() {
 }
 
 void SeqTrack::emitSequenceEvent(SequenceEvent::Kind kind, int value, u32 duration) const {
-  if (auto* sink = parentSeq->eventSink())
-    sink->onSequenceEvent({kind, getTime(), sourceSlot, executionOffset, value, duration});
+  if (parentSeq->eventSink())
+    parentSeq->dispatchSequenceEvent({kind, getTime(), sourceSlot, executionOffset, value, duration});
 }
 
 void SeqTrack::loadTrackMainLoop(u32 stopOffset, s32 stopTime) {
@@ -939,7 +939,16 @@ double SeqTrack::applyPanVolumeCorrection(double level, LevelController controll
   return level;
 }
 
-void SeqTrack::addLevelNoItem(double level, LevelController controller, Resolution res, int absTime) {
+void SeqTrack::addLevelNoItem(double level, LevelController controller, Resolution res, int absTime, int sourceRaw) {
+  if (controller == LevelController::Volume) {
+    if (parentSeq->eventSink()) {
+      // Raw source metadata is carried through the NoItem execution path. Native
+      // helper levels are tagged separately; never mistaken for source opcodes.
+      const int value = sourceRaw >= 0 ? sourceRaw : static_cast<int>(std::lround(std::clamp(level, 0.0, 1.0) * maxLevelForResolution(res)));
+      parentSeq->dispatchSequenceEvent({SequenceEvent::Kind::Volume, absTime < 0 ? getTime() : static_cast<u32>(absTime),
+          sourceSlot, executionOffset, value, 0, sourceRaw >= 0 ? SequenceEvent::ValueDomain::SourceRaw : SequenceEvent::ValueDomain::NativeHelper});
+    }
+  }
   level = std::clamp(level, 0.0, 1.0);
   const u16 maxLevel = maxLevelForResolution(res);
   const u16 origLevel = static_cast<u16>(std::lround(level * maxLevel));
@@ -1063,11 +1072,11 @@ void SeqTrack::reapplyStoredLevelNoItem(LevelController controller, int absTime)
   addLevelNoItem(normalizedLevelFromRaw(rawLevel, resolution), controller, resolution, absTime);
 }
 
-void SeqTrack::addVol(u32 offset, u32 length, double volPercent, Resolution res, const std::string &sEventName) {
+void SeqTrack::addVol(u32 offset, u32 length, double volPercent, Resolution res, const std::string &sEventName, int sourceRaw) {
   bool isNewOffset = onEvent(offset, length);
 
   recordSeqEvent<VolSeqEvent>(isNewOffset, getTime(), volPercent, offset, length, sEventName);
-  addLevelNoItem(volPercent, LevelController::Volume, res, -1);
+  addLevelNoItem(volPercent, LevelController::Volume, res, -1, sourceRaw);
 }
 
 void SeqTrack::addVol(u32 offset, u32 length, u8 newVol, const std::string &sEventName) {
@@ -1077,8 +1086,8 @@ void SeqTrack::addVol(u32 offset, u32 length, u8 newVol, const std::string &sEve
   addVolNoItem(newVol);
 }
 
-void SeqTrack::addVolNoItem(u8 newVol) {
-  addLevelNoItem(newVol / 127.0, LevelController::Volume, Resolution::SevenBit);
+void SeqTrack::addVolNoItem(u8 newVol, int sourceRaw) {
+  addLevelNoItem(newVol / 127.0, LevelController::Volume, Resolution::SevenBit, -1, sourceRaw);
 }
 
 void SeqTrack::addVolSlide(u32 offset,
@@ -1202,14 +1211,17 @@ void SeqTrack::addMastVolSlide(u32 offset,
   }
 }
 
-void SeqTrack::addPan(u32 offset, u32 length, u8 pan, const std::string &sEventName) {
+void SeqTrack::addPan(u32 offset, u32 length, u8 pan, const std::string &sEventName, int sourceRaw) {
   bool isNewOffset = onEvent(offset, length);
 
   recordSeqEvent<PanSeqEvent>(isNewOffset, getTime(), pan, offset, length, sEventName);
-  addPanNoItem(pan);
+  addPanNoItem(pan, sourceRaw);
 }
 
-void SeqTrack::addPanNoItem(u8 pan) {
+void SeqTrack::addPanNoItem(u8 pan, int sourceRaw) {
+  if (parentSeq->eventSink())
+    parentSeq->dispatchSequenceEvent({SequenceEvent::Kind::Panning, getTime(), sourceSlot, executionOffset,
+        sourceRaw >= 0 ? sourceRaw : pan, 0, sourceRaw >= 0 ? SequenceEvent::ValueDomain::SourceRaw : SequenceEvent::ValueDomain::NativeHelper});
   if (readMode == READMODE_CONVERT_TO_MIDI) {
     const u8 midiPan = usesLinearAmplitudeScale()
       ? convert7bitLinearPercentPanValToStdMidiVal(pan, &panVolumeCorrectionRate)

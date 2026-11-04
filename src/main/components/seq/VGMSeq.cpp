@@ -373,6 +373,7 @@ bool VGMSeq::captureEvents(SequenceEventSink& sink, u32 stopTicks, int loopRepea
   };
   m_eventSink = &sink;
   m_captureOperations = 0;
+  m_captureEventOrder = 0;
   m_conversionContext.sequenceLoops = loopRepeats;
   try {
     const bool result = loadTracks(READMODE_CAPTURE_EVENTS, stopTicks);
@@ -384,4 +385,10 @@ bool VGMSeq::captureEvents(SequenceEventSink& sink, u32 stopTicks, int loopRepea
 void VGMSeq::countCapturedOperation() {
   if (m_eventSink && ++m_captureOperations > 1000000)
     throw std::runtime_error("Sequence capture instruction limit (possible zero-time loop)");
+}
+
+void VGMSeq::dispatchSequenceEvent(SequenceEvent event) {
+  if (!m_eventSink) return;
+  event.order = m_captureEventOrder++;
+  m_eventSink->onSequenceEvent(event);
 }

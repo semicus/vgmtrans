@@ -329,6 +329,7 @@ target_sources(vgmtranscore
       formats/CPS/CPS1TrackV2.h
       formats/CPS/CPS2Format.h
       formats/CPS/CPS2Instr.h
+      formats/CPS/CPSVolumeTable.h
       formats/CPS/CPSFurnaceSequence.h
       formats/CPS/CPSFurnaceAdapter.h
       formats/CPS/CPS2Scanner.h

@@ -6,7 +6,8 @@
 // Values from a particular parser execution, never references to UI or MIDI events.
 struct SequenceEvent {
   enum class Kind { NoteOn, NoteDuration, NoteOff, Bank, Program, QSoundTempo,
-                    GlobalTranspose, End, Loop, Ignored, Boundary };
+                    GlobalTranspose, End, Loop, Ignored, Boundary, Volume, Panning };
+  enum class ValueDomain { NativeHelper, SourceRaw };
   Kind kind;
   std::uint32_t tick;
   int slot; // Source hardware slot; -1 means the parser has not supplied one.
@@ -16,6 +17,8 @@ struct SequenceEvent {
   // QSoundTempo retains the original 16-bit driver operand.
   int value = 0;
   std::uint32_t duration = 0;
+  ValueDomain domain = ValueDomain::NativeHelper;
+  std::uint64_t order = 0; // Capture-wide execution ordinal; independent of ROM offset.
 };
 class SequenceEventSink {
  public:

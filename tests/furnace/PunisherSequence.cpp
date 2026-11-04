@@ -34,9 +34,10 @@ int main(int argc, char** argv) {
         auto resources = CPSFurnaceAdapter::convertResources(*set, *coll->sampColls()[0], plan.selection);
         unsigned collisions = 0;
         std::vector<std::string> diagnostics;
-        auto song = renderCPSSequence(plan, clock, resources, collisions, diagnostics);
+        CPSControlReport controls;
+        auto song = renderCPSSequence(plan, clock, resources, collisions, diagnostics, &controls);
         song.name = coll->name();
-        song.comment = "Milestone 3A: integrated raw tempo, 62.5 Hz, speed 1; neutral volume/pan; no modulation.";
+        song.comment = "Milestone 3B: raw CPS volume/pan; integrated tempo, 62.5 Hz, speed 1; no modulation.";
         std::ostringstream report;
         report << std::setprecision(12);
         report << "Collection " << index << ": " << coll->name() << " offset=" << seq->offset()
@@ -44,6 +45,21 @@ int main(int argc, char** argv) {
                << " programs=" << plan.programs << " tempos=" << plan.tempos << " ticks=" << plan.endTick
                << " seconds=" << static_cast<double>(clock.seconds(plan.endTick)) << " endRow=" << clock.row(plan.endTick)
                << " collisions=" << collisions << " patterns/channel=" << song.channels[0].patterns.size() << '\n';
+        auto printControl = [&](const char* name, const CPSControlStats& stats) {
+          report << name << " executed=" << stats.executed << " written=" << stats.written
+                 << " merged=" << stats.merged << " rejected=0 sourceRange=" << stats.sourceMin << ".." << stats.sourceMax
+                 << " targetRange=" << stats.targetMin << ".." << stats.targetMax << '\n';
+        };
+        unsigned volumeCells = 0, panCells = 0;
+        for (const auto& channel : song.channels) for (const auto& pattern : channel.patterns) for (const auto& cell : pattern.rows) {
+          if (cell.volume) ++volumeCells;
+          for (const auto& effect : cell.effects) if (effect.command == 0x80) ++panCells;
+        }
+        report << "Stored cells including initialization: volume=" << volumeCells << " pan80xx=" << panCells << '\n';
+        printControl("Volume", controls.volume); printControl("Panning", controls.panning);
+        report << "Volume mapping: round(255*CPSAmplitudeTable[raw]/8191), raw 0..127. Normalized channel gain, no MIDI CC; absolute hardware loudness not established without envelopes/master/DSP.\n"
+               << "Pan mapping: ceil(255*raw/32), raw 0..32; 0->8000, 16->8080, 32->80FF; preserves QSound position index through v228 80xx conversion, not linear L/R gains. Default Furnace DSP unchanged.\n"
+               << "Fallback initialization: volume raw127->255 and pan raw16->8080 on row0 of each musical channel; not counted as source writes. Explicit source controls override; intermediate sub-row states cannot be represented.\n";
         for (int slot : plan.activeSlots) report << "slot " << slot << " -> channel " << slot << '\n';
         for (auto& m : resources.mappings) {
           auto& s = resources.samples[m.sample];
@@ -57,7 +73,7 @@ int main(int argc, char** argv) {
           report << "tempo tick=" << e.tick << " T=" << e.value << " slot=" << e.slot << '\n';
         for (const auto* messages : {&plan.diagnostics, &resources.diagnostics, &diagnostics})
           for (auto& message : *messages) report << message << '\n';
-        report << "Losses: volume, pan, envelopes, vibrato, portamento, pitch bend, echo/DSP and opcode 0x19 omitted.\n"
+        report << "Losses: envelopes, vibrato, portamento, pitch bend, echo/DSP and opcode 0x19 omitted.\n"
                << "Program/bank changes materialized at next Note On; no live instrument switching.\n"
                << "Timing: integral(deltaTick*256/(T*62.5)); round(absoluteSeconds*62.5). Driver accumulator phase unconfirmed; global transpose changes on held voices are not synthesized; <=8ms rounding error relative to integrated timeline.\n";
         if (list) {
@@ -67,8 +83,8 @@ int main(int argc, char** argv) {
         FurWriter::write(song, argv[2]);
         std::ofstream out(std::string(argv[2]) + ".txt"); out << report.str(); out.close();
         std::ofstream trace(std::string(argv[2]) + ".events.tsv");
-        trace << "kind\ttick\tslot\tROMoffset\tvalue\tduration\n";
-        for (auto& e : timeline.events) trace << static_cast<int>(e.kind) << '\t' << e.tick << '\t' << e.slot << '\t' << e.offset << '\t' << e.value << '\t' << e.duration << '\n';
+        trace << "kind\ttick\tslot\tROMoffset\tvalue\tduration\torder\tdomain\n";
+        for (auto& e : timeline.events) trace << static_cast<int>(e.kind) << '\t' << e.tick << '\t' << e.slot << '\t' << e.offset << '\t' << e.value << '\t' << e.duration << '\t' << e.order << '\t' << static_cast<int>(e.domain) << '\n';
         trace.close();
         if (!out || !trace) throw std::runtime_error("Cannot write diagnostics");
         std::cout << report.str() << std::filesystem::absolute(argv[2]).lexically_normal() << '\n';

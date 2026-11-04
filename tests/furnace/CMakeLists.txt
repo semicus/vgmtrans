@@ -42,3 +42,12 @@ target_link_libraries(furnace_sequence_test PRIVATE vgmtranscore)
 target_compile_definitions(furnace_sequence_test PRIVATE FURNACE_TEST_RESOURCE_DIR="${PROJECT_SOURCE_DIR}/bin")
 vgmtrans_enable_project_warnings(furnace_sequence_test)
 add_test(NAME furnace_sequence COMMAND furnace_sequence_test)
+
+add_executable(furnace_controls_test ControlsTest.cpp)
+target_link_libraries(furnace_controls_test PRIVATE vgmtranscore)
+vgmtrans_enable_project_warnings(furnace_controls_test)
+add_test(NAME furnace_controls COMMAND furnace_controls_test "${FUR_TEST_OUTPUT}")
+set_tests_properties(furnace_controls PROPERTIES FIXTURES_SETUP furnace_controls_file)
+add_test(NAME furnace_controls_layout
+  COMMAND Python3::Interpreter "${CMAKE_CURRENT_SOURCE_DIR}/verify_controls.py" "${FUR_TEST_OUTPUT}")
+set_tests_properties(furnace_controls_layout PROPERTIES FIXTURES_REQUIRED furnace_controls_file)
